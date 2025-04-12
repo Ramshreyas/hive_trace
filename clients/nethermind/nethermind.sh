@@ -94,4 +94,12 @@ if [ "$HIVE_LOGLEVEL" != "" ]; then
 fi
 echo "Running Nethermind..."
 # The output is tee:d, via /log.txt, because the enode script uses that logfile to parse out the enode id
-dotnet /nethermind/nethermind.dll --config /configs/test.cfg $LOG_FLAG 2>&1 | tee /log.txt
+# First, create the log file with our trace message
+echo "[HIVE-TRACE] Starting Nethermind client with custom trace enabled" > /log.txt
+# Then append Nethermind output to it
+(
+  echo "========================================"
+  echo "[HIVE-TRACE] Starting Nethermind client with custom trace enabled"
+  echo "========================================"
+  dotnet /nethermind/nethermind.dll --config /configs/test.cfg $LOG_FLAG
+) 2>&1 | tee -a /log.txt
