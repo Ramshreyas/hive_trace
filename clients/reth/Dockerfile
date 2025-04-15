@@ -1,28 +1,33 @@
-ARG baseimage=ghcr.io/paradigmxyz/reth
-ARG tag=latest
+FROM rust:slim as builder
 
-FROM $baseimage:$tag as builder
+# Install build dependencies
+RUN apt-get update -y && apt-get install -y bash curl git pkg-config libssl-dev jq clang libclang-dev make
 
-# Install script tools.
-RUN apt-get update -y
-RUN apt-get install -y bash curl jq
+# Clone reth source code
+WORKDIR /src
+RUN git clone https://github.com/paradigmxyz/reth.git .
 
-# Add genesis mapper script.
-ADD genesis.json /genesis.json
-ADD mapper.jq /mapper.jq
+# Optionally checkout a specific commit or branch
+# RUN git checkout <commit-or-branch>
 
-# Add the startup script.
-ADD reth.sh /reth.sh
+# Copy scripts and configs
+COPY genesis.json /genesis.json
+COPY mapper.jq /mapper.jq
+COPY reth.sh /reth.sh
 RUN chmod +x /reth.sh
-
-# Add the enode URL retriever script.
-ADD enode.sh /hive-bin/enode.sh
+COPY enode.sh /hive-bin/enode.sh
 RUN chmod +x /hive-bin/enode.sh
+
+# Build reth with debug symbols (for tracing PoC)
+RUN cargo build --release
+
+# Copy binary to /usr/local/bin for compatibility with scripts
+RUN cp /src/target/release/reth /usr/local/bin/reth
 
 # Create version.txt
 RUN /usr/local/bin/reth --version | sed -e 's/reth \(.*\)/\1/' > /version.txt
 
-# Export the usual networking ports to allow outside access to the node.
+# Export the usual networking ports
 EXPOSE 8545 8546 30303 30303/udp
 
 ENTRYPOINT ["/reth.sh"]
