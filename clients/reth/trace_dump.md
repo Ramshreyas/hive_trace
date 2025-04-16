@@ -40,19 +40,19 @@ When implementing instruction tracing for Ethereum clients in Hive, the followin
 The general architecture for instruction-level tracing consists of:
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                      Hive Testing Framework                     │
-│                                                                │
-│  ┌─────────────────────────────────────────────────────────┐  │
-│  │                       Docker Container                  │  │
-│  │                                                         │  │
-│  │   ┌───────────────┐          ┌───────────────────┐     │  │
-│  │   │ Client Binary │◄─────────┤ Debugging Tool    │     │  │
-│  │   │ (with debug   │          │ (GDB/LLDB/etc.)   │     │  │
-│  │   │  symbols)     │          └───────┬───────────┘     │  │
-│  │   └───────────────┘                  │                 │  │
-│  │                                      │                 │  │
-│  │                                      ▼                 │  │
+┌─────────────────────────────────────────────────────────────┐
+│                      Hive Testing Framework                 │
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                       Docker Container                │  │
+│  │                                                       │  │
+│  │   ┌───────────────┐          ┌───────────────────┐    │  │
+│  │   │ Client Binary │◄─────────┤ Debugging Tool    │    │  │
+│  │   │ (with debug   │          │ (GDB/LLDB/etc.)   │    │  │
+│  │   │  symbols)     │          └───────┬───────────┘    │  │
+│  │   └───────────────┘                  │                │  │
+│  │                                      │                │  │
+│  │                                      ▼                │  │
 │  │                           ┌───────────────────┐       │  │
 │  │                           │ Tracing Script    │       │  │
 │  │                           └─────────┬─────────┘       │  │
@@ -62,7 +62,7 @@ The general architecture for instruction-level tracing consists of:
 │                                        ▼                    │
 │                               HIVE_TRACE output             │
 │                              (captured in logs)             │
-└────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### Implementation Requirements
