@@ -170,4 +170,30 @@ FLAGS="$FLAGS --nat none"
 
 # Launch the main client.
 echo "Running reth with flags: $FLAGS"
-RUST_LOG=info $reth node $FLAGS
+
+# Debug environment variable
+echo "HIVE_TRACE_INSTRUCTIONS value: [${HIVE_TRACE_INSTRUCTIONS}]"
+
+# Phase 3: Enable conditional GDB tracing
+if [ "${HIVE_TRACE_INSTRUCTIONS}" = "1" ]; then
+    echo "HIVE_TRACE: Instruction tracing enabled - running reth through GDB"
+    # Run with GDB and our tracing script
+    gdb -q -x /trace_instructions.py --args $reth node $FLAGS
+else
+    # Normal execution without tracing
+    RUST_LOG=info $reth node $FLAGS
+fi
+
+# Commented out placeholder
+# Phase 1: Just build with debug symbols, no tracing yet
+# RUST_LOG=info $reth node $FLAGS
+
+# Phase 2: GDB tracing (commented out for now)
+# if [ "${HIVE_TRACE_INSTRUCTIONS}" = "1" ]; then
+#     echo "Instruction tracing enabled - running reth through GDB"
+#     # Run with GDB and our tracing script
+#     gdb -q -x /trace_instructions.py --args $reth node $FLAGS
+# else
+#     # Normal execution
+#     RUST_LOG=info $reth node $FLAGS
+# fi

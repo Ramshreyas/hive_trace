@@ -19,13 +19,44 @@ COPY enode.sh /hive-bin/enode.sh
 RUN chmod +x /hive-bin/enode.sh
 
 # Build reth with debug symbols (for tracing PoC)
-RUN cargo build --release
+RUN RUSTFLAGS="-g" cargo build --bin reth
 
 # Copy binary to /usr/local/bin for compatibility with scripts
-RUN cp /src/target/release/reth /usr/local/bin/reth
+RUN cp /src/target/debug/reth /usr/local/bin/reth
 
 # Create version.txt
 RUN /usr/local/bin/reth --version | sed -e 's/reth \(.*\)/\1/' > /version.txt
+
+# Phase 2: Add multi-stage build with GDB and Python
+FROM debian:bookworm-slim
+
+# Install runtime dependencies and debugging tools
+RUN apt-get update -y && \
+    apt-get install -y \
+    bash \
+    curl \
+    jq \
+    python3 \
+    gdb \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directory structure
+RUN mkdir -p /hive-bin
+
+# Copy from builder stage
+COPY --from=builder /usr/local/bin/reth /usr/local/bin/reth
+COPY --from=builder /version.txt /version.txt
+COPY --from=builder /genesis.json /genesis.json
+COPY --from=builder /reth.sh /reth.sh
+COPY --from=builder /hive-bin/enode.sh /hive-bin/enode.sh
+COPY --from=builder /mapper.jq /mapper.jq
+
+# Phase 3: Copy GDB Python tracing script
+COPY trace_instructions.py /trace_instructions.py
+
+# Set environment variable for tracing (can be overridden at runtime)
+ENV HIVE_TRACE_INSTRUCTIONS=1
 
 # Export the usual networking ports
 EXPOSE 8545 8546 30303 30303/udp
