@@ -172,15 +172,15 @@ FLAGS="$FLAGS --nat none"
 echo "Running reth with flags: $FLAGS"
 
 # Debug environment variable
-echo "HIVE_TRACE_INSTRUCTIONS value: [${HIVE_TRACE_INSTRUCTIONS}]"
+echo "HIVE_TRACE: Tracing is OFF (HIVE_TRACE_INSTRUCTIONS=[${HIVE_TRACE_INSTRUCTIONS}])"
 
 # Phase 3: Enable conditional GDB tracing
 if [ "${HIVE_TRACE_INSTRUCTIONS}" = "1" ]; then
-    echo "HIVE_TRACE: Instruction tracing enabled - running reth through GDB"
-    # Run with GDB and our tracing script
-    gdb -q -x /trace_instructions.py --args $reth node $FLAGS
+    echo "HIVE_TRACE: Line-level tracing enabled - running reth through GDB (trace_line.gdb)"
+    # Run with GDB and the line-level tracing script
+    gdb -q -x /trace_line.gdb --args $reth node $FLAGS
 else
-    # Normal execution without tracing
+    echo "HIVE_TRACE: Tracing is OFF (normal execution)"
     RUST_LOG=info $reth node $FLAGS
 fi
 

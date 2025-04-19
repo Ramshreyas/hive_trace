@@ -3,12 +3,11 @@ FROM rust:slim as builder
 # Install build dependencies
 RUN apt-get update -y && apt-get install -y bash curl git pkg-config libssl-dev jq clang libclang-dev make
 
-# Clone reth source code
-WORKDIR /src
-RUN git clone https://github.com/paradigmxyz/reth.git .
-
-# Optionally checkout a specific commit or branch
-# RUN git checkout <commit-or-branch>
+# Clone reth source from GitHub for reproducible builds
+ARG RETH_REF=main
+RUN git clone https://github.com/paradigmxyz/reth.git /reth-source \
+    && cd /reth-source \
+    && git checkout $RETH_REF
 
 # Copy scripts and configs
 COPY genesis.json /genesis.json
@@ -18,11 +17,14 @@ RUN chmod +x /reth.sh
 COPY enode.sh /hive-bin/enode.sh
 RUN chmod +x /hive-bin/enode.sh
 
+# Set working directory to reth source for cargo build
+WORKDIR /reth-source
+
 # Build reth with debug symbols (for tracing PoC)
 RUN RUSTFLAGS="-g" cargo build --bin reth
 
 # Copy binary to /usr/local/bin for compatibility with scripts
-RUN cp /src/target/debug/reth /usr/local/bin/reth
+RUN cp /reth-source/target/debug/reth /usr/local/bin/reth
 
 # Create version.txt
 RUN /usr/local/bin/reth --version | sed -e 's/reth \(.*\)/\1/' > /version.txt
@@ -54,8 +56,10 @@ COPY --from=builder /mapper.jq /mapper.jq
 
 # Phase 3: Copy GDB Python tracing script
 COPY trace_instructions.py /trace_instructions.py
+COPY trace_line.gdb /trace_line.gdb
 
 # Set environment variable for tracing (can be overridden at runtime)
+# Tracing is ENABLED by default in this image. Set HIVE_TRACE_INSTRUCTIONS=0 to disable GDB tracing.
 ENV HIVE_TRACE_INSTRUCTIONS=1
 
 # Export the usual networking ports
