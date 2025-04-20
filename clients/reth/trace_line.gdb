@@ -5,7 +5,8 @@ set confirm off
 set breakpoint pending on
 
 define hook-stop
-  printf "HIVE_TRACE: 0x%lx\n", $pc
+  printf "HIVE_TRACE: 0x%lx ", $pc
+  info line *$pc
 end
 
 start

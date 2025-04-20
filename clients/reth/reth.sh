@@ -183,17 +183,3 @@ else
     echo "HIVE_TRACE: Tracing is OFF (normal execution)"
     RUST_LOG=info $reth node $FLAGS
 fi
-
-# Commented out placeholder
-# Phase 1: Just build with debug symbols, no tracing yet
-# RUST_LOG=info $reth node $FLAGS
-
-# Phase 2: GDB tracing (commented out for now)
-# if [ "${HIVE_TRACE_INSTRUCTIONS}" = "1" ]; then
-#     echo "Instruction tracing enabled - running reth through GDB"
-#     # Run with GDB and our tracing script
-#     gdb -q -x /trace_instructions.py --args $reth node $FLAGS
-# else
-#     # Normal execution
-#     RUST_LOG=info $reth node $FLAGS
-# fi

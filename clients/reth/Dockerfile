@@ -23,9 +23,6 @@ WORKDIR /reth-source
 # Build reth with debug symbols (for tracing PoC)
 RUN RUSTFLAGS="-g" cargo build --bin reth
 
-# Save the debug build and symbols to a shared volume for post-processing
-RUN mkdir -p /reth-debug-artifacts && cp /reth-source/target/debug/reth /reth-debug-artifacts/reth-debug
-
 # Copy binary to /usr/local/bin for compatibility with scripts
 RUN cp /reth-source/target/debug/reth /usr/local/bin/reth
 
