@@ -11,7 +11,7 @@ end
 
 start
 while 1
-  step
+  next
 end
 
 # Optionally, set a catchpoint for signals (optional)

@@ -54,6 +54,9 @@ COPY --from=builder /reth.sh /reth.sh
 COPY --from=builder /hive-bin/enode.sh /hive-bin/enode.sh
 COPY --from=builder /mapper.jq /mapper.jq
 
+# Copy full source tree from builder for GDB source-level tracing
+COPY --from=builder /reth-source /reth-source
+
 # Phase 3: Copy GDB Python tracing script
 COPY trace_instructions.py /trace_instructions.py
 COPY trace_line.gdb /trace_line.gdb

@@ -176,6 +176,9 @@ echo "HIVE_TRACE: Tracing is OFF (HIVE_TRACE_INSTRUCTIONS=[${HIVE_TRACE_INSTRUCT
 
 # Phase 3: Enable conditional GDB tracing
 if [ "${HIVE_TRACE_INSTRUCTIONS}" = "1" ]; then
+    echo "==== DEBUG INFO PATHS IN RETH BINARY ===="
+    readelf --debug-dump=info /usr/local/bin/reth | grep '\\.rs' | sort | uniq | head -100
+    echo "==== END DEBUG INFO PATHS ===="
     echo "HIVE_TRACE: Line-level tracing enabled - running reth through GDB (trace_line.gdb)"
     # Run with GDB and the line-level tracing script
     gdb -q -x /trace_line.gdb --args $reth node $FLAGS
