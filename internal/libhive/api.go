@@ -248,6 +248,16 @@ func (api *simAPI) startClient(w http.ResponseWriter, r *http.Request) {
 
 	// Create the client container.
 	options := ContainerOptions{Env: env, Files: files}
+	// --- BEGIN reth debug artifact volume mount ---
+	// Only mount for reth client container
+	if clientDef.Name == "reth" {
+		// Choose a host path for artifact persistence. This should be outside Docker's managed volume space.
+		// Here, we use /tmp/hive-reth-debug-artifacts as a safe default.
+		artifactHostPath := "/tmp/hive-reth-debug-artifacts"
+		artifactContainerPath := "/reth-debug-artifacts"
+		options.Binds = append(options.Binds, artifactHostPath+":"+artifactContainerPath)
+	}
+	// --- END reth debug artifact volume mount ---
 	containerID, err := api.backend.CreateContainer(ctx, clientDef.Image, options)
 	if err != nil {
 		slog.Error("API: client container create failed", "client", clientDef.Name, "error", err)

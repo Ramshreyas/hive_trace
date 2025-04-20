@@ -86,6 +86,13 @@ func (b *ContainerBackend) CreateContainer(ctx context.Context, imageName string
 		},
 	}
 
+	// Add support for volume mounts (binds) from ContainerOptions
+	if len(opt.Binds) > 0 {
+		createOpts.HostConfig = &docker.HostConfig{
+			Binds: opt.Binds,
+		}
+	}
+
 	if opt.Input != nil {
 		// Pre-announce that stdin will be attached. The stdin attachment
 		// will fail silently if this is not set.
