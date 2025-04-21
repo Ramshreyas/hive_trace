@@ -2,7 +2,10 @@
 
 set pagination off
 set confirm off
-set breakpoint pending on
+# set breakpoint pending on
+set follow-fork-mode child
+break main
+run
 
 define hook-stop
   printf "HIVE_TRACE: 0x%lx ", $pc
@@ -11,8 +14,6 @@ end
 
 start
 while 1
-  next
+  step
 end
 
-# Optionally, set a catchpoint for signals (optional)
-# catch signal SIGSEGV

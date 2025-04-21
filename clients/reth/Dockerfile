@@ -26,6 +26,11 @@ RUN RUSTFLAGS="-g" cargo build --bin reth
 # Copy binary to /usr/local/bin for compatibility with scripts
 RUN cp /reth-source/target/debug/reth /usr/local/bin/reth
 
+# Output debug info paths from the Reth binary at build time for diagnostics
+RUN echo "==== DEBUG INFO PATHS IN RETH BINARY (DOCKER BUILD) ====" && \
+    readelf --debug-dump=info /usr/local/bin/reth | grep '\\.rs' | sort | uniq | head -100 || echo "(No .rs debug info paths found)" && \
+    echo "==== END DEBUG INFO PATHS (DOCKER BUILD) ===="
+
 # Create version.txt
 RUN /usr/local/bin/reth --version | sed -e 's/reth \(.*\)/\1/' > /version.txt
 
@@ -41,6 +46,7 @@ RUN apt-get update -y && \
     python3 \
     gdb \
     ca-certificates \
+    binutils \
     && rm -rf /var/lib/apt/lists/*
 
 # Create directory structure
