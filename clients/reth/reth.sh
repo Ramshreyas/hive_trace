@@ -171,9 +171,6 @@ FLAGS="$FLAGS --nat none"
 # Launch the main client.
 echo "Running reth with flags: $FLAGS"
 
-# Debug environment variable
-echo "HIVE_TRACE: Tracing is OFF (HIVE_TRACE_INSTRUCTIONS=[${HIVE_TRACE_INSTRUCTIONS}])"
-
 # Phase 3: Enable conditional GDB tracing
 if [ "${HIVE_TRACE_INSTRUCTIONS}" = "1" ]; then
     echo "==== DEBUG INFO PATHS IN RETH BINARY ===="
