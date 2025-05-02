@@ -1,38 +1,5 @@
 #!/bin/bash
 
-# Startup script to initialize and boot a reth instance.
-#
-# This script assumes the following files:
-#  - `reth` binary is located in the filesystem root
-#  - `genesis.json` file is located in the filesystem root (mandatory)
-#  - `chain.rlp` file is located in the filesystem root (optional)
-#  - `blocks` folder is located in the filesystem root (optional)
-#
-# This script can be configured using the following environment variables:
-#
-#  - HIVE_BOOTNODE             enode URL of the remote bootstrap node
-#  - HIVE_NETWORK_ID           network ID number to use for the eth protocol
-#  - HIVE_FORK_HOMESTEAD       block number of the homestead transition
-#  - HIVE_FORK_DAO_BLOCK       block number of the DAO hard-fork transition
-#  - HIVE_FORK_TANGERINE       block number of TangerineWhistle
-#  - HIVE_FORK_SPURIOUS        block number of SpuriousDragon
-#  - HIVE_FORK_BYZANTIUM       block number for Byzantium transition
-#  - HIVE_FORK_CONSTANTINOPLE  block number for Constantinople transition
-#  - HIVE_FORK_PETERSBURG      block number for ConstantinopleFix/Petersburg transition
-#  - HIVE_FORK_ISTANBUL        block number for Istanbul transition
-#  - HIVE_FORK_MUIR_GLACIER    block number for MuirGlacier transition
-#  - HIVE_SHANGHAI_TIMESTAMP   timestamp for Shanghai transition
-#  - HIVE_CANCUN_TIMESTAMP     timestamp for Cancun transition
-#  - HIVE_LOGLEVEL             client log level
-#
-# These flags are NOT supported by reth
-#
-#  - HIVE_GRAPHQL_ENABLED      turns on GraphQL server
-#  - HIVE_CLIQUE_PRIVATEKEY    private key for clique mining
-#  - HIVE_NODETYPE             sync and pruning selector (archive, full, light)
-#  - HIVE_MINER                address to credit with mining rewards
-#  - HIVE_MINER_EXTRA          extra-data field to set for newly minted blocks
-
 # Immediately abort the script on any error encountered
 set -ex
 
@@ -53,13 +20,6 @@ esac
 DATADIR="/reth-hive-datadir"
 mkdir $DATADIR
 FLAGS="$FLAGS --datadir $DATADIR"
-
-# TODO If a specific network ID is requested, use that
-#if [ "$HIVE_NETWORK_ID" != "" ]; then
-#    FLAGS="$FLAGS --networkid $HIVE_NETWORK_ID"
-#else
-#    FLAGS="$FLAGS --networkid 1337"
-#fi
 
 # Configure the chain.
 mv /genesis.json /genesis-input.json
@@ -124,28 +84,6 @@ fi
 if [ "$HIVE_BOOTNODE" != "" ]; then
     FLAGS="$FLAGS --bootnodes=$HIVE_BOOTNODE"
 fi
-
-# Configure any mining operation
-# TODO
-#if [ "$HIVE_MINER" != "" ]; then
-#    FLAGS="$FLAGS --mine --miner.etherbase $HIVE_MINER"
-#fi
-#if [ "$HIVE_MINER_EXTRA" != "" ]; then
-#    FLAGS="$FLAGS --miner.extradata $HIVE_MINER_EXTRA"
-#fi
-
-# Import clique signing key.
-# TODO
-#if [ "$HIVE_CLIQUE_PRIVATEKEY" != "" ]; then
-#    # Create password file.
-#    echo "Importing clique key..."
-#    echo "$HIVE_CLIQUE_PRIVATEKEY" > ./private_key.txt
-#
-#    # Ensure password file is used when running geth in mining mode.
-#    if [ "$HIVE_MINER" != "" ]; then
-#        FLAGS="$FLAGS --miner.sigfile private_key.txt"
-#    fi
-#fi
 
 # If clique is expected enable auto-mine
 if [ -n "${HIVE_CLIQUE_PRIVATEKEY}" ] || [ -n "${HIVE_CLIQUE_PERIOD}" ]; then
