@@ -14,9 +14,10 @@ rbreak ^reth.*::
 
 run
 
+printf "===TRACE STARTS==="
+
 # Loop: step one source line, then print its .rs:line (if any)
 while 1
   next
-  printf "TRACE:"
   info line *$pc
 end
