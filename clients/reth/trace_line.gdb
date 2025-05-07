@@ -10,14 +10,11 @@ set breakpoint pending on
 set follow-fork-mode child
 
 # Break on every reth function
-rbreak ^reth.*::
+rbreak '^reth_cli_util::'
+
+commands
+  info line *$pc
+  continue
+end
 
 run
-
-printf "===TRACE STARTS==="
-
-# Loop: step one source line, then print its .rs:line (if any)
-while 1
-  next
-  info line *$pc
-end
