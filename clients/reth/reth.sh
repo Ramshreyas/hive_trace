@@ -109,6 +109,9 @@ FLAGS="$FLAGS --nat none"
 # Launch the main client.
 echo "Running reth with flags: $FLAGS"
 
+# Change to source directory where the debug build resides
+cd /reth-source
+
 # Phase 3: Enable conditional GDB tracing
 if [ "${HIVE_TRACE_INSTRUCTIONS}" = "1" ]; then
     echo "==== DEBUG INFO PATHS IN RETH BINARY ===="
