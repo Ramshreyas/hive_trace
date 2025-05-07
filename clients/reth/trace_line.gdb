@@ -10,7 +10,7 @@ set breakpoint pending on
 set follow-fork-mode child
 
 # Break on every reth function
-rbreak '^reth_cli_util::'
+rbreak ^reth_cli::
 
 commands
   info line *$pc
