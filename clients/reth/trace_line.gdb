@@ -9,12 +9,22 @@ handle SIGPIPE nostop noprint pass
 set breakpoint pending on
 set follow-fork-mode child
 
-# Break on every reth function of interest
-rbreak reth_cli.*::
+# Demangle Rust symbols in GDB output
+set print demangle on
 
-commands
-  info line *$pc
-  continue
+# === Define a global hook that runs on every breakpoint stop ===
+define hook-stop
+  # $bpnum is nonzero if this stop was due to a breakpoint
+  if $bpnum
+    info line *$pc
+    continue
+  end
 end
 
+# Now set your regex breakpoints (even if it makes dozens or thousands)
+rbreak '^block_on<.*reth_.*::'
+
+info breakpoints
+
+# Launch your program
 run
