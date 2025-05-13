@@ -1,3 +1,6 @@
+# ensure GDB loads the correct object file
+file /reth-source/target/debug/reth
+
 # Tidy up GDB output
 set pagination off
 set confirm off
@@ -12,19 +15,15 @@ set follow-fork-mode child
 # Demangle Rust symbols in GDB output
 set print demangle on
 
-# === Define a global hook that runs on every breakpoint stop ===
-define hook-stop
-  # $bpnum is nonzero if this stop was due to a breakpoint
-  if $bpnum
-    info line *$pc
-    continue
-  end
-end
-
-# Now set your regex breakpoints (even if it makes dozens or thousands)
-rbreak '^block_on<.*reth_.*::'
+# only break on your real, hyphen→underscore crates
+rbreak ^reth_.*::
 
 info breakpoints
 
-# Launch your program
+#commands
+#  silent             
+#  info line *$pc
+#  continue           
+#end
+
 run

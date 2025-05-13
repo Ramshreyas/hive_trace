@@ -6,7 +6,7 @@ set -ex
 # no ansi colors
 export RUST_LOG_STYLE=never
 
-reth=/usr/local/bin/reth
+reth=/reth-source/target/debug/reth
 
 case "$HIVE_LOGLEVEL" in
     0|1) FLAGS="$FLAGS -v" ;;
