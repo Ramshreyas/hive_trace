@@ -16,14 +16,14 @@ set follow-fork-mode child
 set print demangle on
 
 # only break on your real, hyphen→underscore crates
-rbreak ^reth_.*::
+rbreak ^reth.*::
 
-info breakpoints
+#info breakpoints
 
-#commands
-#  silent             
-#  info line *$pc
-#  continue           
-#end
+commands
+  silent             
+  info line *$pc
+  continue           
+end
 
 run
