@@ -15,15 +15,15 @@ set follow-fork-mode child
 # Demangle Rust symbols in GDB output
 set print demangle on
 
-# only break on your real, hyphen→underscore crates
-rbreak ^reth.*::
+# Set breakpoints
+rbreak ^block_on.*::
 
-#info breakpoints
+info breakpoints
 
-commands
-  silent             
-  info line *$pc
-  continue           
-end
+#commands
+#  silent             
+#  info line *$pc
+#  continue           
+#end
 
 run
