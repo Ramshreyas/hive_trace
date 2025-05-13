@@ -16,7 +16,7 @@ set follow-fork-mode child
 set print demangle on
 
 # Set breakpoints
-rbreak ^block_on.*::
+rbreak ^crates.*::
 
 info breakpoints
 
