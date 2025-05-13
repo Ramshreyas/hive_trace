@@ -16,12 +16,19 @@ set follow-fork-mode child
 set print demangle on
 
 # Set breakpoints
-rbreak ^tokio.*::
+#rbreak ^tokio.*::
 
-commands
-  silent             
-  info line *$pc
-  continue           
-end
+#commands
+#  silent             
+#  info line *$pc
+#  continue           
+#end
 
 run
+
+set $i = 0
+while $i < 1000
+  next
+  info line *$pc
+  set $i = $i + 1
+end
