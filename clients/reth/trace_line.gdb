@@ -16,14 +16,12 @@ set follow-fork-mode child
 set print demangle on
 
 # Set breakpoints
-rbreak ^crates.*::
+rbreak ^tokio.*::
 
-info breakpoints
-
-#commands
-#  silent             
-#  info line *$pc
-#  continue           
-#end
+commands
+  silent             
+  info line *$pc
+  continue           
+end
 
 run
