@@ -1,28 +1,77 @@
-ARG baseimage=ghcr.io/paradigmxyz/reth
-ARG tag=latest
+FROM rust:slim as builder
 
-FROM $baseimage:$tag as builder
+# Install build dependencies
+RUN apt-get update -y && apt-get install -y bash curl git pkg-config libssl-dev jq clang libclang-dev make
 
-# Install script tools.
-RUN apt-get update -y
-RUN apt-get install -y bash curl jq
+# Clone reth source from GitHub for reproducible builds
+ARG RETH_REF=main
+RUN git clone https://github.com/paradigmxyz/reth.git /reth-source \
+    && cd /reth-source \
+    && git checkout $RETH_REF
 
-# Add genesis mapper script.
-ADD genesis.json /genesis.json
-ADD mapper.jq /mapper.jq
-
-# Add the startup script.
-ADD reth.sh /reth.sh
+# Copy scripts and configs
+COPY genesis.json /genesis.json
+COPY mapper.jq /mapper.jq
+COPY reth.sh /reth.sh
 RUN chmod +x /reth.sh
-
-# Add the enode URL retriever script.
-ADD enode.sh /hive-bin/enode.sh
+COPY enode.sh /hive-bin/enode.sh
 RUN chmod +x /hive-bin/enode.sh
+
+# Set working directory to reth source for cargo build
+WORKDIR /reth-source
+
+# Build reth with debug symbols (for tracing PoC)
+RUN RUSTFLAGS="-g" cargo build --profile dev --bin reth
+
+# Copy binary to /usr/local/bin for compatibility with scripts
+RUN cp /reth-source/target/debug/reth /usr/local/bin/reth
+
+# Output debug info paths from the Reth binary at build time for diagnostics
+RUN echo "==== DEBUG INFO PATHS IN RETH BINARY (DOCKER BUILD) ====" && \
+    readelf --debug-dump=info /usr/local/bin/reth | grep '\\.rs' | sort | uniq | head -100 || echo "(No .rs debug info paths found)" && \
+    echo "==== END DEBUG INFO PATHS (DOCKER BUILD) ===="
 
 # Create version.txt
 RUN /usr/local/bin/reth --version | sed -e 's/reth \(.*\)/\1/' > /version.txt
 
-# Export the usual networking ports to allow outside access to the node.
+# Phase 2: Add multi-stage build with GDB and Python
+FROM debian:bookworm-slim
+
+# Install runtime dependencies and debugging tools
+RUN apt-get update -y && \
+    apt-get install -y \
+    bash \
+    curl \
+    jq \
+    python3 \
+    gdb \
+    ca-certificates \
+    binutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directory structure
+RUN mkdir -p /hive-bin
+
+# Copy from builder stage
+COPY --from=builder /usr/local/bin/reth /usr/local/bin/reth
+COPY --from=builder /version.txt /version.txt
+COPY --from=builder /genesis.json /genesis.json
+COPY --from=builder /reth.sh /reth.sh
+COPY --from=builder /hive-bin/enode.sh /hive-bin/enode.sh
+COPY --from=builder /mapper.jq /mapper.jq
+
+# Copy full source tree from builder for GDB source-level tracing
+COPY --from=builder /reth-source /reth-source
+
+# Phase 3: Copy GDB Python tracing script
+COPY trace_instructions.py /trace_instructions.py
+COPY trace_line.gdb /trace_line.gdb
+
+# Set environment variable for tracing (can be overridden at runtime)
+# Tracing is ENABLED by default in this image. Set HIVE_TRACE_INSTRUCTIONS=0 to disable GDB tracing.
+ENV HIVE_TRACE_INSTRUCTIONS=1
+
+# Export the usual networking ports
 EXPOSE 8545 8546 30303 30303/udp
 
 ENTRYPOINT ["/reth.sh"]

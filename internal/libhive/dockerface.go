@@ -63,6 +63,9 @@ type ContainerOptions struct {
 
 	// Input: if set, container stdin draws from the given reader.
 	Input io.ReadCloser
+
+	// (ADDED) Optional: Mounts for persistent host<->container directories
+	Binds []string // Docker -v host:container binds
 }
 
 // ContainerInfo is returned by StartContainer.
