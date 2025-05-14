@@ -16,19 +16,14 @@ set follow-fork-mode child
 set print demangle on
 
 # Set breakpoints
-#rbreak ^tokio.*::
+break crates/cli/util/src/sigsegv_handler.rs:122
+break crates/cli/util/src/sigsegv_handler.rs:140
+break crates/cli/util/src/sigsegv_handler.rs:144
 
-#commands
-#  silent             
-#  info line *$pc
-#  continue           
-#end
+commands 1 2 3
+  silent             
+  info line *$pc
+  continue           
+end
 
 run
-
-set $i = 0
-while $i < 1000
-  next
-  info line *$pc
-  set $i = $i + 1
-end

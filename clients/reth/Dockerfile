@@ -21,7 +21,7 @@ RUN chmod +x /hive-bin/enode.sh
 WORKDIR /reth-source
 
 # Build reth with debug symbols (for tracing PoC)
-RUN RUSTFLAGS="-g" cargo build --bin reth
+RUN RUSTFLAGS="-g" cargo build --profile dev --bin reth
 
 # Copy binary to /usr/local/bin for compatibility with scripts
 RUN cp /reth-source/target/debug/reth /usr/local/bin/reth
