@@ -113,9 +113,8 @@ echo "Running reth with flags: $FLAGS"
 cd /reth-source
 
 # Generate the breakpoints
-python3 /generate_breakpoints.py --crates-root /reth-source reth-cli-util
+python3 /gen_breakpoints.py --crates-root /reth-source reth-cli-util
 
 # Run with tracing
 echo "TRACE: Line-level tracing enabled - running reth through GDB (trace_line.gdb)"
-# Run with GDB and the line-level tracing script
 gdb -q -x /trace_line.gdb --args $reth node $FLAGS
