@@ -44,8 +44,8 @@ RUN apt-get update -y && \
     curl \
     jq \
     python3 \
-    python3-pip \
     python3-toml \
+    gdb \
     ca-certificates \
     binutils \
     && rm -rf /var/lib/apt/lists/*
