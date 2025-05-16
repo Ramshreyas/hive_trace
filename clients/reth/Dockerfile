@@ -64,7 +64,7 @@ COPY --from=builder /mapper.jq /mapper.jq
 COPY --from=builder /reth-source /reth-source
 
 # Phase 3: Copy GDB Python tracing script
-COPY trace_instructions.py /trace_instructions.py
+COPY breakpoints.gdb /breakpoints.gdb
 COPY trace_line.gdb /trace_line.gdb
 
 # Set environment variable for tracing (can be overridden at runtime)

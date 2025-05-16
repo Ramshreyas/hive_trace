@@ -18,6 +18,6 @@ set follow-fork-mode child
 set print demangle on
 
 # Set breakpoints
-source breakpoints.gdb
+source /breakpoints.gdb
 
 run
