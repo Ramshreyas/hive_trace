@@ -44,7 +44,8 @@ RUN apt-get update -y && \
     curl \
     jq \
     python3 \
-    gdb \
+    python3-pip \
+    python3-toml \
     ca-certificates \
     binutils \
     && rm -rf /var/lib/apt/lists/*
@@ -64,7 +65,7 @@ COPY --from=builder /mapper.jq /mapper.jq
 COPY --from=builder /reth-source /reth-source
 
 # Phase 3: Copy GDB Python tracing script
-COPY breakpoints.gdb /breakpoints.gdb
+COPY gen_breakpoints.py /gen_breakpoints.py
 COPY trace_line.gdb /trace_line.gdb
 
 # Set environment variable for tracing (can be overridden at runtime)

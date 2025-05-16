@@ -112,16 +112,10 @@ echo "Running reth with flags: $FLAGS"
 # Change to source directory where the debug build resides
 cd /reth-source
 
-# Phase 3: Enable conditional GDB tracing
-if [ "${HIVE_TRACE_INSTRUCTIONS}" = "1" ]; then
-    echo "==== DEBUG INFO PATHS IN RETH BINARY ===="
-    readelf --debug-dump=info /usr/local/bin/reth | grep '\\.rs' | sort | uniq | head -100 > /tmp/reth_debug_paths.txt
-    cat /tmp/reth_debug_paths.txt
-    echo "==== END DEBUG INFO PATHS ===="
-    echo "HIVE_TRACE: Line-level tracing enabled - running reth through GDB (trace_line.gdb)"
-    # Run with GDB and the line-level tracing script
-    gdb -q -x /trace_line.gdb --args $reth node $FLAGS
-else
-    echo "HIVE_TRACE: Tracing is OFF (normal execution)"
-    RUST_LOG=info $reth node $FLAGS
-fi
+# Generate the breakpoints
+python3 /generate_breakpoints.py --crates-root /reth-source reth-cli-util
+
+# Run with tracing
+echo "TRACE: Line-level tracing enabled - running reth through GDB (trace_line.gdb)"
+# Run with GDB and the line-level tracing script
+gdb -q -x /trace_line.gdb --args $reth node $FLAGS
