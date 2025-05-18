@@ -40,16 +40,28 @@ def gen_breakpoints(crate_dirs: dict, out_path: Path, root: Path):
             src_root = crate_dir / "src"
             if not src_root.exists():
                 continue
+
             out.write(f"\n# ---- breakpoints for crate: {crate_name} ----\n")
             for rs in sorted(src_root.rglob("*.rs")):
                 rel = rs.relative_to(root)
                 for line_no, fn in find_functions(rs):
+                    # 1) set a line-based breakpoint
                     out.write(f"break {rel}:{line_no}\n")
+                    # 2) attach commands
                     out.write("commands\n")
                     out.write("  silent\n")
-                    out.write("  info line *$pc\n")
-                    out.write("  continue\n")
-                    out.write("end\n\n")
+                    out.write("  python\n")
+                    out.write("import gdb\n")
+                    out.write("# remember the frame we hit\n")
+                    out.write("start_frame = gdb.selected_frame().name()\n")
+                    out.write("# keep stepping until we leave that frame\n")
+                    out.write("while gdb.selected_frame().name() == start_frame:\n")
+                    out.write("    gdb.execute('next')\n")
+                    out.write("    gdb.execute('info line *$pc')\n")
+                    out.write("# once we’ve left, resume normally\n")
+                    out.write("gdb.execute('continue')\n")
+                    out.write("  end\n")   # end of python block
+                    out.write("end\n\n")    # end of commands
     print(f"Generated {out_path}")
 
 
