@@ -13,26 +13,17 @@ RUN cd cmd/geth && \
 # --- Final image ---
 FROM alpine:latest
 
-RUN apk add --no-cache \
-      bash \
-      curl \
-      jq \
-      gdb \
-      python3 \
-      py3-toml
+RUN apk add --no-cache bash curl jq gdb
 
 # Copy the debug build of geth
 COPY --from=builder /build/geth /usr/local/bin/geth
-COPY --from=builder /build /go-ethereum
 
 # Generate the version.txt file.
 RUN /usr/local/bin/geth version | head -1 > /version.txt
 
 # Inject the startup script and dependencies
 ADD geth.sh /geth.sh
-ADD trace.gdb /home/ramshreyas/Documents/Dev/ETHFoundation/hive/clients/go-ethereum/trace.gdb
-ADD gen_breakpoints.py /gen_breakpoints.py
-ADD packages.txt /packages.txt
+COPY trace.gdb /home/ramshreyas/Documents/Dev/ETHFoundation/hive/clients/go-ethereum/trace.gdb
 ADD mapper.jq /mapper.jq
 RUN chmod +x /geth.sh
 
@@ -47,4 +38,6 @@ ADD genesis.json /genesis.json
 # Export the usual networking ports to allow outside access to the node
 EXPOSE 8545 8546 8547 8551 30303 30303/udp
 
-ENTRYPOINT ["/geth.sh"]
+# Start an interactive shell with gdb ready
+ENTRYPOINT ["/bin/bash"]
+CMD ["-c", "gdb -x /home/ramshreyas/Documents/Dev/ETHFoundation/hive/clients/go-ethereum/trace.gdb --args /usr/local/bin/geth"]
