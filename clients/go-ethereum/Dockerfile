@@ -1,16 +1,27 @@
-ARG baseimage=ethereum/client-go
-ARG tag=latest
+# --- Builder stage: Build geth from source with debug symbols ---
+FROM golang:1.23-alpine as builder
 
-FROM $baseimage:$tag as builder
+RUN apk add --no-cache git make build-base linux-headers
 
+WORKDIR /build
+RUN git clone https://github.com/ethereum/go-ethereum.git .
+
+# Build geth with debug symbols, no optimizations, no inlining
+RUN cd cmd/geth && \
+    go build -gcflags "all=-N -l" -ldflags "" -o /build/geth
+
+# --- Final image ---
 FROM alpine:latest
-RUN apk add --update bash curl jq
-COPY --from=builder /usr/local/bin/geth /usr/local/bin/geth
+
+RUN apk add --no-cache bash curl jq gdb
+
+# Copy the debug build of geth
+COPY --from=builder /build/geth /usr/local/bin/geth
 
 # Generate the version.txt file.
-RUN /usr/local/bin/geth console --exec 'console.log(admin.nodeInfo.name)' --maxpeers=0 --nodiscover --dev 2>/dev/null | head -1 > /version.txt
+RUN /usr/local/bin/geth version | head -1 > /version.txt
 
-# Inject the startup script.
+# Inject the startup script and dependencies
 ADD geth.sh /geth.sh
 ADD mapper.jq /mapper.jq
 RUN chmod +x /geth.sh
