@@ -32,7 +32,7 @@ RUN /usr/local/bin/geth version | head -1 > /version.txt
 ADD geth.sh /geth.sh
 ADD trace.gdb /home/ramshreyas/Documents/Dev/ETHFoundation/hive/clients/go-ethereum/trace.gdb
 ADD gen_breakpoints.py /gen_breakpoints.py
-ADD packages.txt /packages.txt
+ADD targets.txt /targets.txt
 ADD mapper.jq /mapper.jq
 RUN chmod +x /geth.sh
 

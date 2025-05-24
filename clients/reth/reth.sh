@@ -113,7 +113,7 @@ echo "Running reth with flags: $FLAGS"
 cd /reth-source
 
 # Generate the breakpoints
-python3 /gen_breakpoints.py --crates-root /reth-source --file /crates.txt -o /breakpoints.gdb
+python3 /gen_breakpoints.py --crates-root /reth-source --file /targets.txt -o /breakpoints.gdb
 
 # Log the breakpoints
 echo "Breakpoint list:"

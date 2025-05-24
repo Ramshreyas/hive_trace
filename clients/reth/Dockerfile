@@ -65,7 +65,7 @@ COPY --from=builder /mapper.jq /mapper.jq
 COPY --from=builder /reth-source /reth-source
 
 # Phase 3: Copy GDB Python tracing script
-COPY crates.txt /crates.txt
+COPY targets.txt /targets.txt
 COPY gen_breakpoints.py /gen_breakpoints.py
 COPY trace_line.gdb /trace_line.gdb
 

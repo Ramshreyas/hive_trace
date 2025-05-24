@@ -47,8 +47,8 @@
 set -e
 
 # --- Run gen_breakpoints.py for Go packages ---
-echo "Generating breakpoints.gdb from packages.txt..."
-python3 /gen_breakpoints.py -f /packages.txt -o /breakpoints.gdb --module-root /go-ethereum
+echo "Generating breakpoints.gdb from targets.txt..."
+python3 /gen_breakpoints.py -f /targets.txt -o /breakpoints.gdb --module-root /go-ethereum
 cat /breakpoints.gdb
 
 geth=/usr/local/bin/geth
