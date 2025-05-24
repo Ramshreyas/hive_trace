@@ -4,7 +4,7 @@
 set -e
 
 usage() {
-    echo "Usage: $0 --client <geth|reth> --test <test> --output <output_file>"
+    echo "Usage: $0 --client <go-ethereum|reth> --test <test> --output <output_file>"
     exit 1
 }
 
@@ -33,7 +33,7 @@ if [[ -z "$CLIENT" || -z "$TEST" || -z "$OUTPUT" ]]; then
     usage
 fi
 
-if [[ "$CLIENT" == "geth" ]]; then
+if [[ "$CLIENT" == "go-ethereum" ]]; then
     TARGET_DIR="clients/go-ethereum"
 elif [[ "$CLIENT" == "reth" ]]; then
     TARGET_DIR="clients/reth"
@@ -59,5 +59,9 @@ cp targets.txt "$TARGET_DIR/targets.txt"
     --client.checktimelimit 1200m \
     --sim.timelimit 1200m \
     --docker.output > "$OUTPUT" 2>&1
+
+# Filter the output file to only include lines containing ' Line '
+grep ' Line ' "$OUTPUT" > "${OUTPUT}.filtered"
+mv "${OUTPUT}.filtered" "$OUTPUT"
 
 echo "Trace complete. Output written to $OUTPUT"
