@@ -65,7 +65,7 @@ cp "$TARGETS" "$TARGET_DIR/targets.txt"
     --docker.output > "$OUTPUT" 2>&1
 
 # Filter the output file to only include lines containing ' Line '
-grep ' Line ' "$OUTPUT" > "${OUTPUT}.filtered"
-mv "${OUTPUT}.filtered" "$OUTPUT"
+# grep ' Line ' "$OUTPUT" > "${OUTPUT}.filtered"
+# mv "${OUTPUT}.filtered" "$OUTPUT"
 
 echo "Trace complete. Output written to $OUTPUT"
