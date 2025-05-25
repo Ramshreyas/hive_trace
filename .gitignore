@@ -12,5 +12,4 @@ hivesim-rs/target
 # Logs
 *.log
 EIP_7702_geth_trace
-.gitignore
 EIP_7702_reth_trace
