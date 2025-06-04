@@ -84,7 +84,7 @@ def main():
         '-f', '--file',
         type=Path,
         required=True,
-        help="file with one Go package name per line"
+        help="file with one Go package name per line, or 'all' to include all packages"
     )
     parser.add_argument(
         '-o', '--out',
@@ -94,16 +94,19 @@ def main():
     )
     args = parser.parse_args()
 
-    # Read package names from file
-    pkg_names = [l.strip() for l in args.file.read_text().splitlines() if l.strip()]
-
     all_pkgs = discover_packages(args.module_root)
-    selected = {}
-    for name in pkg_names:
-        if name not in all_pkgs:
-            print(f"Warning: package '{name}' not found under {args.module_root}")
-        else:
-            selected[name] = all_pkgs[name]
+
+    # Support 'all' as a special value
+    if args.file.name.lower() == "all" or (args.file.is_file() and args.file.read_text().strip().lower() == "all"):
+        selected = all_pkgs
+    else:
+        pkg_names = [l.strip() for l in args.file.read_text().splitlines() if l.strip()]
+        selected = {}
+        for name in pkg_names:
+            if name not in all_pkgs:
+                print(f"Warning: package '{name}' not found under {args.module_root}")
+            else:
+                selected[name] = all_pkgs[name]
 
     if not selected:
         print("No valid packages found; exiting.")
