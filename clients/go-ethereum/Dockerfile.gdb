@@ -22,8 +22,6 @@ RUN ln -sf python3 /usr/bin/python
 COPY --from=builder /build/geth /usr/local/bin/geth
 COPY --from=builder /go/bin/gopls /usr/local/bin/gopls
 COPY --from=builder /build /build
-ADD extract_calls.sh /extract_calls.sh
-RUN chmod +x /extract_calls.sh
 ADD extract_calls_lsp.py /extract_calls_lsp.py
 
 # Generate the version.txt file.
