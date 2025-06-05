@@ -10,13 +10,21 @@ RUN git clone https://github.com/ethereum/go-ethereum.git .
 RUN cd cmd/geth && \
     go build -gcflags "all=-N -l" -ldflags "" -o /build/geth
 
+RUN go install golang.org/x/tools/gopls@latest
+
 # --- Final image ---
 FROM alpine:latest
 
-RUN apk add --no-cache bash curl jq gdb
+RUN apk add --no-cache bash curl jq gdb python3 py3-pip go
+RUN ln -sf python3 /usr/bin/python
 
 # Copy the debug build of geth
 COPY --from=builder /build/geth /usr/local/bin/geth
+COPY --from=builder /go/bin/gopls /usr/local/bin/gopls
+COPY --from=builder /build /build
+ADD extract_calls.sh /extract_calls.sh
+RUN chmod +x /extract_calls.sh
+ADD extract_calls_lsp.py /extract_calls_lsp.py
 
 # Generate the version.txt file.
 RUN /usr/local/bin/geth version | head -1 > /version.txt
@@ -38,6 +46,5 @@ ADD genesis.json /genesis.json
 # Export the usual networking ports to allow outside access to the node
 EXPOSE 8545 8546 8547 8551 30303 30303/udp
 
-# Start an interactive shell with gdb ready
-ENTRYPOINT ["/bin/bash"]
-CMD ["-c", "gdb -x /home/ramshreyas/Documents/Dev/ETHFoundation/hive/clients/go-ethereum/trace.gdb --args /usr/local/bin/geth"]
+# Start an interactive shell and run only the call graph extraction
+CMD ["python3", "extract_calls_lsp.py"]
