@@ -61,7 +61,6 @@ class LSPClient:
         self.proc.stdin.flush()
         my_id = self.id
         self.id += 1
-        # Wait for response
         for _ in range(100):
             with self.lock:
                 if my_id in self.responses:
@@ -123,7 +122,6 @@ for f in go_files:
     if resp and 'result' in resp:
         for sym in resp['result']:
             if sym.get('kind') in (12, 6):  # Function or Method
-                # Try to get 'range' directly, else from 'location', else None
                 rng = sym.get('range')
                 if rng is None and 'location' in sym and 'range' in sym['location']:
                     rng = sym['location']['range']
@@ -137,33 +135,8 @@ print("=== All Functions and Methods ===")
 for fn in functions:
     print(f"{fn['name']} ({fn['file']})")
 
-# Write functions to JSON file
 os.makedirs("/output", exist_ok=True)
 with open("/output/functions.json", "w") as f:
     json.dump(functions, f, indent=2)
-
-# --- Call graph extraction ---
-callgraph = {}
-for fn in functions:
-    uri = f"file://{fn['file']}"
-    pos = fn['range']['start'] if fn['range'] else {"line": 0, "character": 0}
-    params = {
-        "textDocument": {"uri": uri},
-        "position": pos,
-        "context": {"includeDeclaration": False}
-    }
-    debug(f"Requesting references for {fn['name']} in {fn['file']} at {pos}")
-    resp = client.send("textDocument/references", params)
-    callees = []
-    if resp and 'result' in resp and resp['result']:
-        for ref in resp['result']:
-            ref_uri = ref['uri']
-            ref_file = ref_uri.replace("file://", "")
-            ref_line = ref['range']['start']['line']
-            callees.append({"file": ref_file, "line": ref_line})
-    callgraph[fn['name']] = callees
-
-with open("/output/callgraph.json", "w") as f:
-    json.dump(callgraph, f, indent=2)
 
 client.close()

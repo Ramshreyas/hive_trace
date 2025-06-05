@@ -23,7 +23,9 @@ class LSPClient:
 
     def _reader(self):
         debug("LSP reader thread started.")
+        buffer = b""
         while True:
+            # Read header
             header = b""
             while not header.endswith(b"\r\n\r\n"):
                 chunk = self.proc.stdout.buffer.read(1)
@@ -39,12 +41,24 @@ class LSPClient:
             if content_length == 0:
                 debug("No content-length found in LSP response header.")
                 continue
-            body = self.proc.stdout.read(content_length)
-            debug(f"Received LSP response: {body[:200]}")
-            resp = json.loads(body)
-            if 'id' in resp:
-                with self.lock:
-                    self.responses[resp['id']] = resp
+            # Read exactly content_length bytes
+            body = b""
+            while len(body) < content_length:
+                chunk = self.proc.stdout.buffer.read(content_length - len(body))
+                if not chunk:
+                    debug("LSP server stdout closed during body read.")
+                    return
+                body += chunk
+            try:
+                body_str = body.decode()
+                debug(f"Received LSP response: {body_str[:200]}")
+                resp = json.loads(body_str)
+                if 'id' in resp:
+                    with self.lock:
+                        self.responses[resp['id']] = resp
+            except json.JSONDecodeError as e:
+                debug(f"JSON decode error: {e} in body: {body[:200]}")
+                continue
 
     def send(self, method, params=None):
         msg = {
@@ -61,7 +75,6 @@ class LSPClient:
         self.proc.stdin.flush()
         my_id = self.id
         self.id += 1
-        # Wait for response
         for _ in range(100):
             with self.lock:
                 if my_id in self.responses:
@@ -89,70 +102,61 @@ class LSPClient:
         self.proc.terminate()
         self.proc.wait()
 
+# Initialize and warm up gopls
 lsp_cmd = ["gopls", "-mode=stdio"]
 client = LSPClient(lsp_cmd)
 
-root_uri = f"file://{go_workspace}"
 init_params = {
     "processId": os.getpid(),
-    "rootUri": root_uri,
+    "rootUri": f"file://{go_workspace}",
     "capabilities": {},
-    "workspaceFolders": [{"uri": root_uri, "name": "go-ethereum"}]
+    "trace": "verbose"
 }
-debug("Sending initialize request to LSP server.")
 resp = client.send("initialize", init_params)
 if not resp:
     debug("No response to initialize request. Exiting.")
     sys.exit(1)
 client.notify("initialized", {})
 
-go_files = []
-debug(f"Walking workspace {go_workspace} to find Go files.")
-for dirpath, _, filenames in os.walk(go_workspace):
-    for f in filenames:
-        if f.endswith(".go"):
-            go_files.append(os.path.join(dirpath, f))
-debug(f"Found {len(go_files)} Go files.")
+time.sleep(5)  # Give gopls time to warm up and index the workspace
 
-functions = []
-for f in go_files:
-    uri = f"file://{f}"
-    params = {"textDocument": {"uri": uri}}
-    debug(f"Requesting document symbols for {f}")
-    resp = client.send("textDocument/documentSymbol", params)
-    if resp and 'result' in resp:
-        for sym in resp['result']:
-            if sym.get('kind') in (12, 6):  # Function or Method
-                # Try to get 'range' directly, else from 'location', else None
-                rng = sym.get('range')
-                if rng is None and 'location' in sym and 'range' in sym['location']:
-                    rng = sym['location']['range']
-                if rng is None:
-                    debug(f"No range found for symbol {sym.get('name')} in {f}")
-                functions.append({"name": sym['name'], "file": f, "range": rng})
-    else:
-        debug(f"No symbols found or error for {f}")
+# Read functions.json
+with open("/output/functions.json") as f:
+    functions = json.load(f)
 
-print("=== All Functions and Methods ===")
-for fn in functions:
-    print(f"{fn['name']} ({fn['file']})")
-
-# Write functions to JSON file
-os.makedirs("/output", exist_ok=True)
-with open("/output/functions.json", "w") as f:
-    json.dump(functions, f, indent=2)
-
-# --- Call graph extraction ---
 callgraph = {}
 for fn in functions:
     uri = f"file://{fn['file']}"
-    pos = fn['range']['start'] if fn['range'] else {"line": 0, "character": 0}
+    # Send didOpen notification for the file
+    try:
+        with open(fn['file'], 'r') as fobj:
+            lines = fobj.readlines()
+            text = ''.join(lines)
+        client.notify("textDocument/didOpen", {
+            "textDocument": {
+                "uri": uri,
+                "languageId": "go",
+                "version": 1,
+                "text": text
+            }
+        })
+        # Try to find the function name position on the start line
+        line_num = fn['range']['start']['line'] if fn.get('range') else 0
+        func_name = fn['name'].split('.')[-1].split(')')[-1]  # crude, works for most Go funcs
+        line_text = lines[line_num] if line_num < len(lines) else ''
+        char_pos = line_text.find(func_name)
+        if char_pos == -1:
+            char_pos = fn['range']['start']['character'] if fn.get('range') else 0
+        pos = {"line": line_num, "character": char_pos}
+    except Exception as e:
+        debug(f"Failed to open file or find function name position for {fn['name']} in {fn['file']}: {e}")
+        pos = fn['range']['start'] if fn.get('range') else {"line": 0, "character": 0}
     params = {
         "textDocument": {"uri": uri},
         "position": pos,
         "context": {"includeDeclaration": False}
     }
-    debug(f"Requesting references for {fn['name']} in {fn['file']} at {pos}")
+    debug(f"Requesting references for {fn.get('name')} in {fn.get('file')} at {pos}")
     resp = client.send("textDocument/references", params)
     callees = []
     if resp and 'result' in resp and resp['result']:
@@ -161,7 +165,13 @@ for fn in functions:
             ref_file = ref_uri.replace("file://", "")
             ref_line = ref['range']['start']['line']
             callees.append({"file": ref_file, "line": ref_line})
-    callgraph[fn['name']] = callees
+    callgraph[fn.get('name')] = callees
+
+    # Close the file in gopls to free resources
+    client.notify("textDocument/didClose", {
+        "textDocument": {"uri": uri}
+    })
+    time.sleep(0.1)  # Throttle to avoid overloading gopls
 
 with open("/output/callgraph.json", "w") as f:
     json.dump(callgraph, f, indent=2)

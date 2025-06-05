@@ -23,6 +23,9 @@ COPY --from=builder /build/geth /usr/local/bin/geth
 COPY --from=builder /go/bin/gopls /usr/local/bin/gopls
 COPY --from=builder /build /build
 ADD extract_calls_lsp.py /extract_calls_lsp.py
+ADD extract_functions_lsp.py /extract_functions_lsp.py
+ADD extract_callgraph_lsp.py /extract_callgraph_lsp.py
+ADD run_all_lsp.sh /run_all_lsp.sh
 
 # Generate the version.txt file.
 RUN /usr/local/bin/geth version | head -1 > /version.txt
@@ -32,6 +35,7 @@ ADD geth.sh /geth.sh
 COPY trace.gdb /home/ramshreyas/Documents/Dev/ETHFoundation/hive/clients/go-ethereum/trace.gdb
 ADD mapper.jq /mapper.jq
 RUN chmod +x /geth.sh
+RUN chmod +x /run_all_lsp.sh
 
 # Inject the enode id retriever script.
 RUN mkdir /hive-bin
@@ -45,4 +49,6 @@ ADD genesis.json /genesis.json
 EXPOSE 8545 8546 8547 8551 30303 30303/udp
 
 # Start an interactive shell and run only the call graph extraction
-CMD ["python3", "extract_calls_lsp.py"]
+CMD ["/bin/bash"]
+# Optionally, to run both scripts automatically, use:
+# CMD ["/run_all_lsp.sh"]
