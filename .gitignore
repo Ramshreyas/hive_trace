@@ -13,3 +13,5 @@ hivesim-rs/target
 *.log
 EIP_7702_geth_trace
 EIP_7702_reth_trace
+clients/go-ethereum/output/callgraph.json
+clients/go-ethereum/output/functions.json
