@@ -10,21 +10,7 @@ RUN git clone https://github.com/ethereum/go-ethereum.git .
 RUN cd cmd/geth && \
     go build -gcflags "all=-N -l" -ldflags "" -o /build/geth
 
-<<<<<<< HEAD
-# Install go-callvis tool
-RUN go install github.com/ofabry/go-callvis@latest
-
-# Ensure Go modules are downloaded
-RUN cd cmd/geth && go mod download
-
-# Generate the call graph for geth main package using go-callvis
-RUN cd cmd/geth && go-callvis -nostd -format dot -file /build/geth_callgraph.dot github.com/ethereum/go-ethereum/cmd/geth
-
-# Show first lines and check if the file exists
-RUN ls -lh /build/geth_callgraph.dot && head -20 /build/geth_callgraph.dot || echo "callgraph.dot is missing or empty"
-=======
 RUN go install golang.org/x/tools/gopls@latest
->>>>>>> lspcallgraph
 
 # --- Final image ---
 FROM alpine:latest
@@ -34,16 +20,12 @@ RUN ln -sf python3 /usr/bin/python
 
 # Copy the debug build of geth and the call graph
 COPY --from=builder /build/geth /usr/local/bin/geth
-<<<<<<< HEAD
-COPY --from=builder /build/geth_callgraph.dot /geth_callgraph.dot
-=======
 COPY --from=builder /go/bin/gopls /usr/local/bin/gopls
 COPY --from=builder /build /build
 ADD extract_calls_lsp.py /extract_calls_lsp.py
 ADD extract_functions_lsp.py /extract_functions_lsp.py
 ADD extract_callgraph_lsp.py /extract_callgraph_lsp.py
 ADD run_all_lsp.sh /run_all_lsp.sh
->>>>>>> lspcallgraph
 
 # Generate the version.txt file.
 RUN /usr/local/bin/geth version | head -1 > /version.txt
@@ -66,12 +48,7 @@ ADD genesis.json /genesis.json
 # Export the usual networking ports to allow outside access to the node
 EXPOSE 8545 8546 8547 8551 30303 30303/udp
 
-<<<<<<< HEAD
-# Output the call graph and exit
-ENTRYPOINT ["/bin/sh", "-c", "cat /geth_callgraph.dot"]
-=======
 # Start an interactive shell and run only the call graph extraction
 # CMD ["/bin/bash"]
 # Optionally, to run both scripts automatically, use:
 CMD ["/run_all_lsp.sh"]
->>>>>>> lspcallgraph
