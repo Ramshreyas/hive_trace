@@ -49,6 +49,6 @@ ADD genesis.json /genesis.json
 EXPOSE 8545 8546 8547 8551 30303 30303/udp
 
 # Start an interactive shell and run only the call graph extraction
-CMD ["/bin/bash"]
+# CMD ["/bin/bash"]
 # Optionally, to run both scripts automatically, use:
-# CMD ["/run_all_lsp.sh"]
+CMD ["/run_all_lsp.sh"]
