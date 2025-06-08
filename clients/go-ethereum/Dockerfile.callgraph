@@ -25,6 +25,13 @@ COPY --from=builder /build /build
 ADD tracing/extract_calls_lsp.py /extract_calls_lsp.py
 ADD tracing/extract_functions_lsp.py /extract_functions_lsp.py
 ADD tracing/extract_callgraph_lsp.py /extract_callgraph_lsp.py
+ADD tracing/make_callgraph_bidirectional.py /make_callgraph_bidirectional.py
+ADD tracing/classify_nodes.py /classify_nodes.py
+ADD tracing/split_by_module.py /split_by_module.py
+ADD tracing/extarct_flows.py /extract_flows.py
+ADD tracing/rank_trunks.py /rank_trunks.py
+ADD tracing/resolve_function_from_id.py /resolve_function_from_id.py
+ADD tracing/check_resolver.py /check_resolver.py
 ADD tracing/extract_functions_and_callgraph.sh /extract_functions_and_callgraph.sh
 
 # Generate the version.txt file.
