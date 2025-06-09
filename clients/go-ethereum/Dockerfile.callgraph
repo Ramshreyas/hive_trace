@@ -28,7 +28,7 @@ ADD tracing/extract_callgraph_lsp.py /extract_callgraph_lsp.py
 ADD tracing/make_callgraph_bidirectional.py /make_callgraph_bidirectional.py
 ADD tracing/classify_nodes.py /classify_nodes.py
 ADD tracing/split_by_module.py /split_by_module.py
-ADD tracing/extarct_flows.py /extract_flows.py
+ADD tracing/extract_flows.py /extract_flows.py
 ADD tracing/rank_trunks.py /rank_trunks.py
 ADD tracing/resolve_function_from_id.py /resolve_function_from_id.py
 ADD tracing/check_resolver.py /check_resolver.py
