@@ -15,24 +15,34 @@ RUN go install golang.org/x/tools/gopls@latest
 # --- Final image ---
 FROM alpine:latest
 
-RUN apk add --no-cache bash curl jq gdb python3 py3-pip go
-RUN ln -sf python3 /usr/bin/python
+RUN apk add --no-cache \
+      bash \
+      curl \
+      jq \
+      gdb \
+      python3 \
+      py3-pip \
+      py3-virtualenv \
+      go
+
+# 2) Create & activate venv
+RUN python3 -m venv /venv
+
+# 3) Ensure the venv’s python & pip are first on PATH
+ENV PATH="/venv/bin:${PATH}"
+
+# 4) Now pip is the venv's pip, so these will land inside /venv
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir google-genai \
+ && pip install --no-cache-dir protobuf
 
 # Copy the debug build of geth and the call graph
 COPY --from=builder /build/geth /usr/local/bin/geth
 COPY --from=builder /go/bin/gopls /usr/local/bin/gopls
 COPY --from=builder /build /build
-ADD tracing/extract_calls_lsp.py /extract_calls_lsp.py
-ADD tracing/extract_functions_lsp.py /extract_functions_lsp.py
-ADD tracing/extract_callgraph_lsp.py /extract_callgraph_lsp.py
-ADD tracing/make_callgraph_bidirectional.py /make_callgraph_bidirectional.py
-ADD tracing/classify_nodes.py /classify_nodes.py
-ADD tracing/split_by_module.py /split_by_module.py
-ADD tracing/extract_flows.py /extract_flows.py
-ADD tracing/rank_trunks.py /rank_trunks.py
-ADD tracing/resolve_function_from_id.py /resolve_function_from_id.py
-ADD tracing/check_resolver.py /check_resolver.py
-ADD tracing/extract_functions_and_callgraph.sh /extract_functions_and_callgraph.sh
+
+# Add tracing scripts and utilities to root directory
+COPY tracing/ /
 
 # Generate the version.txt file.
 RUN /usr/local/bin/geth version | head -1 > /version.txt
@@ -56,6 +66,6 @@ ADD genesis.json /genesis.json
 EXPOSE 8545 8546 8547 8551 30303 30303/udp
 
 # Start an interactive shell and run only the call graph extraction
-# CMD ["/bin/bash"]
+CMD ["/bin/bash"]
 # Optionally, to run both scripts automatically, use:
-CMD ["/extract_functions_and_callgraph.sh"]
+# CMD ["/extract_functions_and_callgraph.sh"]
