@@ -44,12 +44,12 @@ In one sentence, describe the primary purpose of this module (a module is a sing
         res = client.models.generate_content(
             model="gemini-2.5-flash-preview-05-20",
             contents=prompt,
-            config=GenerateContentConfig(
-            temperature=0.2,
-            top_p=0.95,
-            top_k=20,
-            max_output_tokens=4096,
-        ),
+                config=GenerateContentConfig(
+                temperature=0.2,
+                top_p=0.95,
+                top_k=20,
+                max_output_tokens=4096,
+            ),
         )
         summaries[mod] = res.text.strip()
         print(f"✅ {mod} summarized")
