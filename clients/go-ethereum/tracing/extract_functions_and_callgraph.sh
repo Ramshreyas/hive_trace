@@ -51,5 +51,8 @@ python3 /annotate_modules.py
 echo "▶ Phase 4-M2 – Trunk summaries within modules (Gemini)"
 python3 /annotate_trunks.py
 
+echo "▶ Phase 4-M3 – Leaf summaries within modules (Gemini)"
+python3 /annotate_leaves.py
+
 echo "✅ Pipeline finished. All artefacts are under /output"
 printf "   USE_LLM=%s  |  GEMINI_API_KEY=%s\n" "$USE_LLM" "${GEMINI_API_KEY:+***}"
