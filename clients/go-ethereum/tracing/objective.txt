@@ -1,0 +1,1 @@
+Mark TRUE if the function directly implements or enforces behavior introduced by EIP-7702. Mark FALSE if it is generic plumbing (db helpers, logging, JWT middleware, etc.). Return only JSON like {"<func_id>": true/false}

@@ -26,33 +26,11 @@ python3 /classify_nodes.py \
         --input  /output/bidirectional_callgraph.json \
         --output /output/classified_callgraph.json
 
-echo "▶ Phase 2 – Split by module"
-python3 /split_by_module.py \
-        --input         /output/classified_callgraph.json \
-        --out-subgraphs /output/module_subgraphs.json \
-        --out-deps      /output/module_dependencies.json
-
-echo "▶ Phase 3 – Extract flows + rank trunks"
-python3 /extract_flows.py \
-        --input  /output/module_subgraphs.json \
-        --output /output/module_flows.json
-
-python3 /rank_trunks.py \
-        --input  /output/module_flows.json \
-        --output /output/module_flows_ranked.json \
-        --top    "${TOP_TRUNKS}"
-
 echo "▶ Phase 4-M0 – Repo summary (Gemini)"
 python3 /annotate_repo.py
 
 echo "▶ Phase 4-M1 – Module summaries (Gemini)"
 python3 /annotate_modules.py
-
-echo "▶ Phase 4-M2 – Trunk summaries within modules (Gemini)"
-python3 /annotate_trunks.py
-
-echo "▶ Phase 4-M3 – Leaf summaries within modules (Gemini)"
-python3 /annotate_leaves.py
 
 echo "✅ Pipeline finished. All artefacts are under /output"
 printf "   USE_LLM=%s  |  GEMINI_API_KEY=%s\n" "$USE_LLM" "${GEMINI_API_KEY:+***}"
