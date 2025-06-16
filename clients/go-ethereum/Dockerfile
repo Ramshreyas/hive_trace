@@ -30,11 +30,12 @@ RUN /usr/local/bin/geth version | head -1 > /version.txt
 
 # Inject the startup script and dependencies
 ADD geth.sh /geth.sh
-ADD trace.gdb /home/ramshreyas/Documents/Dev/ETHFoundation/hive/clients/go-ethereum/trace.gdb
-ADD gen_breakpoints.py /gen_breakpoints.py
-ADD targets.txt /targets.txt
 ADD mapper.jq /mapper.jq
 RUN chmod +x /geth.sh
+
+# Add the gdb scripts
+ADD trace.gdb /trace.gdb
+ADD output/eip_breakpoints.gdb /eip_breakpoints.gdb
 
 # Inject the enode id retriever script.
 RUN mkdir /hive-bin

@@ -47,9 +47,6 @@
 set -e
 
 # --- Run gen_breakpoints.py for Go packages ---
-echo "Generating breakpoints.gdb from targets.txt..."
-python3 /gen_breakpoints.py -f /targets.txt -o /breakpoints.gdb --module-root /go-ethereum
-cat /breakpoints.gdb
 
 geth=/usr/local/bin/geth
 FLAGS="--state.scheme=path"
@@ -175,4 +172,4 @@ FLAGS="$FLAGS --nat=none"
 FLAGS="$FLAGS --datadir.minfreedisk=0"
 echo "Running go-ethereum with flags $FLAGS"
 #gdb --args $geth $FLAGS   # old way, if present
-gdb -x /home/ramshreyas/Documents/Dev/ETHFoundation/hive/clients/go-ethereum/trace.gdb --args $geth $FLAGS
+gdb -x /trace.gdb --args $geth $FLAGS

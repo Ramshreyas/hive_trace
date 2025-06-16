@@ -15,6 +15,6 @@ set breakpoint pending on
 set follow-fork-mode child
 
 # Set breakpoints
-source /breakpoints.gdb
+source /eip_breakpoints.gdb
 
 run

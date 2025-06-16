@@ -4,7 +4,7 @@
 set -e
 
 usage() {
-    echo "Usage: $0 --client <go-ethereum|reth> --test <test> --output <output_file> --targets <targets_file>"
+    echo "Usage: $0 --client <go-ethereum|reth> --test <test> --output <output_file>"
     exit 1
 }
 
@@ -23,17 +23,13 @@ while [[ $# -gt 0 ]]; do
             OUTPUT="$2"
             shift 2
             ;;
-        --targets)
-            TARGETS="$2"
-            shift 2
-            ;;
         *)
             usage
             ;;
     esac
 done
 
-if [[ -z "$CLIENT" || -z "$TEST" || -z "$OUTPUT" || -z "$TARGETS" ]]; then
+if [[ -z "$CLIENT" || -z "$TEST" || -z "$OUTPUT" ]]; then
     usage
 fi
 
@@ -45,14 +41,6 @@ else
     echo "Invalid client: $CLIENT"
     usage
 fi
-
-# Copy the specified targets file to the client directory
-if [[ ! -f "$TARGETS" ]]; then
-    echo "$TARGETS not found."
-    exit 1
-fi
-
-cp "$TARGETS" "$TARGET_DIR/targets.txt"
 
 # Run the hive command
 ./hive --sim ethereum/eest/consume-rlp \
