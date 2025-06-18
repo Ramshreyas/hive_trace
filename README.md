@@ -1,50 +1,42 @@
-# hive - Ethereum end-to-end test harness
+# hive - Ethereum end-to-end test harness (Tracing Fork)
 
-Hive is a system for running integration tests against Ethereum clients.
+This repository is a **fork** of the Ethereum Foundation's Hive testing harness, customized to enable **execution tracing of Ethereum clients** as they are run against EIP tests.
 
-Ethereum Foundation maintains two public Hive instances to check for consensus, p2p and
-blockchain compatibility:
+## What’s Different in This Fork?
 
-- eth1 consensus, graphql and p2p tests are on <https://hivetests.ethdevops.io>
-- Engine API integration and rpc tests are on <https://hivetests2.ethdevops.io>
+This fork adds the ability to **trace execution clients** during EIP test runs, providing insight into which lines of code are executed for a given test. This is achieved through the following customizations:
 
-**To read more about hive, please check [the documentation][doc].**
+1. **Dockerfile Modifications**  
+   The Dockerfile is modified to build execution clients from source, enabling debugging and instrumentation.
 
-### Trophies
+2. **Dynamic Breakpoint Generation**  
+   Breakpoints are dynamically generated based on a specified objective (e.g., tracing code paths relevant to a particular EIP or function).
 
-If you find a bug in your client implementation due to this project, please be so kind as
-to add it here to the trophy list. It could help prove that `hive` is indeed a useful tool
-for validating Ethereum client implementations.
+3. **Automated Debugging**  
+   The program is run inside GDB (or a similar debugger) within the test harness, allowing for automated tracing and collection of execution data.
 
-- go-ethereum:
-  - Genesis chain config couldn't handle present but empty settings: [#2790](https://github.com/ethereum/go-ethereum/pull/2790)
-  - Data race between remote block import and local block mining: [#2793](https://github.com/ethereum/go-ethereum/pull/2793)
-  - Downloader didn't penalize incompatible forks harshly enough: [#2801](https://github.com/ethereum/go-ethereum/pull/2801)
-- Nethermind:
-  - Bug in p2p with bonding nodes algorithm found by Hive: [#1894](https://github.com/NethermindEth/nethermind/pull/1894)
-  - Difference in return value for 'r' parameter in getTransactionByHash: [#2372](https://github.com/NethermindEth/nethermind/issues/2372)
-  - CREATE/CREATE2 behavior when account already has max nonce [#3698](https://github.com/NethermindEth/nethermind/pull/3698)
-  - Blake2 performance issue with non-vectorized code [#3837](https://github.com/NethermindEth/nethermind/pull/3837)
+4. **Filtered Output**  
+   After the test run, the output is filtered to show only the lines of code (LoC) that were executed for the given test, making it easy to analyze code coverage and behavior.
 
-### Contributions
+## How to Run
 
-This project takes a different approach to code contributions than your usual FOSS project
-with well ingrained maintainers and relatively few external contributors. It is an
-experiment. Whether it will work out or not is for the future to decide.
+To run a traced test, use the provided script:
 
-We follow the [Collective Code Construction Contract (C4)][c4], code contribution model,
-as expanded and explained in [The ZeroMQ Process][zmq-process]. The core idea being that
-any patch that successfully solves an issue (bug/feature) and doesn't break any existing
-code/contracts must be optimistically merged by maintainers. Followup patches may be used
-for additional polishes – and patches may even be outright reverted if they turn out to
-have a negative impact – but no change must be rejected based on personal values.
+```sh
+./test_trace.sh --client <client> --test <test_case> --output <output file>
+```
 
-### License
+- `<client>`: The execution client to trace (e.g., geth, nethermind)
+- `<test_case>`: The EIP test or scenario to run
+- `<output file>`: The output file
 
-The hive project is licensed under the [GNU General Public License v3.0][gpl]. You can
-find it in the COPYING file.
+The script will:
+- Build the client from source with debug symbols
+- Set up dynamic breakpoints according to the objective
+- Run the client under GDB during the test
+- Output the filtered list of executed lines for analysis
 
-[doc]: ./docs/overview.md
-[c4]: http://rfc.zeromq.org/spec:22/C4/
-[zmq-process]: https://hintjens.gitbooks.io/social-architecture/content/chapter4.html
-[gpl]: http://www.gnu.org/licenses/gpl-3.0.en.html
+---
+
+🚧 **Work in progress: This fork is under active development. Features and documentation may change.** 🚧
+
