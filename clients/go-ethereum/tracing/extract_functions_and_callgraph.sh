@@ -37,7 +37,7 @@ python3 gen_breakpoints.py \
         --callgraph /output/classified_callgraph.json \
         --objective-file /objective.txt \
         --context-file /context.txt \
-        --n 30 --depth 10 \
+        --n 10 --depth 5 \
         --out-gdb /output/eip_breakpoints.gdb
 
 echo "✅ Pipeline finished. All artefacts are under /output"

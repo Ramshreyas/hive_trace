@@ -67,16 +67,18 @@ def bfs_slice_from_queue(Q: deque, cg, n, max_depth, visited, depth_map):
                 Q.append((c, d + 1))
     return slice_ids
 
-# ───────── prompt builder ─────────────────────────────────────────────────
+# ───────── prompt builder (indented bullet tree) ───────────────────────────
 def build_prompt(repo_sum, mod_sum, objective, context,
-                 slice_ids, cg, fn_meta):
-    bullets = []
-    for fid in slice_ids:
-        loc  = fn_meta[fid]
-        ntyp = cg[fid]["node_type"]
-        code = first_code_lines(loc)
-        bullets.append(f"• {fid} ({ntyp}):\n    {code}")
-    funcs_block = "\n".join(bullets)
+                 slice_ids, depth_map, cg, fn_meta):
+    """Produce an indented tree where indentation = depth from root."""
+    lines = []
+    for fid in sorted(slice_ids, key=lambda x: depth_map[x]):
+        indent = "  " * depth_map[fid]               # two spaces per depth
+        loc    = fn_meta[fid]
+        ntyp   = cg[fid]["node_type"]
+        code   = first_code_lines(loc)
+        lines.append(f"{indent}• {fid} ({ntyp}): {code}")
+    tree_block = "\n".join(lines)
 
     return textwrap.dedent(f"""
         Objective:
@@ -91,8 +93,8 @@ def build_prompt(repo_sum, mod_sum, objective, context,
         Context:
         {context[:4000]}
 
-        Candidate functions ({len(slice_ids)}):
-        {funcs_block}
+        Call graph slice (indented tree):
+        {tree_block}
 
         Respond ONLY with JSON:
         {{ "results": {{ "<func_id>": true/false, ... }} }}
@@ -234,7 +236,7 @@ def main():
             mod_sum = mod_sums.get(cg[root]["pkg"],
                                    "(module summary missing)")
             prompt  = build_prompt(repo_sum, mod_sum, objective, context,
-                                   slice_ids, cg, fn_meta)
+                                   slice_ids, depth_map, cg, fn_meta)
             pfile = PROMPT_DIR / f"SLICE_{safe_name(root)}_{len(visited)}.txt"
             pfile.write_text(prompt)
             verdict = ask_gemini_retry(prompt, root)
