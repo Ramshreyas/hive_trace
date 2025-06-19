@@ -91,7 +91,7 @@ def build_prompt(repo_sum, mod_sum, objective, context,
         {mod_sum}
 
         Context:
-        {context[:4000]}
+        {context}
 
         Call graph slice (indented tree):
         {tree_block}
