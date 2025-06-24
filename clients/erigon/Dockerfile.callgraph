@@ -1,0 +1,71 @@
+# --- Builder stage: Build erigon from source with debug symbols ---
+FROM golang:1.24 AS builder
+
+RUN apt-get update && apt-get install -y git make build-essential linux-headers-amd64 graphviz && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+RUN git clone https://github.com/erigontech/erigon.git .
+
+# Build erigon with debug symbols, no optimizations, no inlining
+RUN make erigon GOBUILD_FLAGS="-gcflags 'all=-N -l' -ldflags ''"
+
+RUN go install golang.org/x/tools/gopls@latest
+
+# --- Final image ---
+FROM debian:stable-slim
+
+RUN apt-get update && apt-get install -y \
+      bash \
+      curl \
+      jq \
+      gdb \
+      python3 \
+      python3-pip \
+      python3-venv \
+      golang-go \
+      && rm -rf /var/lib/apt/lists/*
+
+# 2) Create & activate venv
+RUN python3 -m venv /venv
+
+# 3) Ensure the venv’s python & pip are first on PATH
+ENV PATH="/venv/bin:/usr/local/bin:${PATH}"
+
+# 4) Now pip is the venv's pip, so these will land inside /venv
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir google-genai \
+ && pip install --no-cache-dir protobuf
+
+# Copy the debug build of erigon and the call graph
+COPY --from=builder /build/build/bin/erigon /usr/local/bin/erigon
+COPY --from=builder /go/bin/gopls /usr/local/bin/gopls
+COPY --from=builder /build /build
+
+# Add tracing scripts and utilities to root directory
+COPY tracing/ /
+
+# Generate the version.txt file.
+RUN /usr/local/bin/erigon --version | head -1 > /version.txt
+
+# Inject the startup script and dependencies
+ADD erigon.sh /erigon.sh
+COPY trace.gdb /home/ramshreyas/Documents/Dev/ETHFoundation/hive/clients/erigon/trace.gdb
+ADD mapper.jq /mapper.jq
+RUN chmod +x /erigon.sh
+RUN chmod +x /extract_functions_and_callgraph.sh
+
+# Inject the enode id retriever script.
+RUN mkdir /hive-bin
+ADD enode.sh /hive-bin/enode.sh
+RUN chmod +x /hive-bin/enode.sh
+
+# Add a default genesis file.
+ADD genesis.json /genesis.json
+
+# Export the usual networking ports to allow outside access to the node
+EXPOSE 8545 8546 8547 8551 30303 30303/udp
+
+# Start an interactive shell and run only the call graph extraction
+CMD ["/bin/bash"]
+# Optionally, to run both scripts automatically, use:
+# CMD ["/extract_functions_and_callgraph.sh"]
