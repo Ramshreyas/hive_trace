@@ -15,7 +15,7 @@ RUN cd cmd/erigon && go build -gcflags "all=-N -l" -ldflags "" -o /build/erigon
 RUN go install golang.org/x/tools/gopls@latest
 
 # --- Final image ---
-FROM debian:stable-slim
+FROM golang:1.24-bookworm AS dev
 
 RUN apt-get update && apt-get install -y \
       bash \

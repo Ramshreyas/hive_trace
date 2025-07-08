@@ -29,15 +29,12 @@ python3 /classify_nodes.py \
 echo "▶ Phase 4-M0 – Repo summary (Gemini)"
 python3 /annotate_repo.py
 
-echo "▶ Phase 4-M1 – Module summaries (Gemini)"
-python3 /annotate_modules.py
-
 echo "▶ Phase 4-M2 – Generate Breakpoints (Gemini)"
-python3 gen_breakpoints.py \
+python3 /gen_breakpoints.py \
         --callgraph /output/classified_callgraph.json \
         --objective-file /objective.txt \
         --context-file /context.txt \
-        --n 10 --depth 5 \
+        --n 10 --depth 100 --max-lines 40 \
         --out-gdb /output/eip_breakpoints.gdb
 
 echo "✅ Pipeline finished. All artefacts are under /output"

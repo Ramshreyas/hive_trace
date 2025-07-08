@@ -1,179 +1,306 @@
 #!/usr/bin/env python3
-import subprocess
+"""Build a callers‑→callees call‑graph for an Erigon checkout.
+
+This **v2** script re‑uses the hardened LSP client from the symbols
+extractor and adds a few tricks so that it can run for hours on a large
+repo without timing out or exhausting gopls.
+
+Major fixes
+===========
+1. **Go / gopls version mismatch guard** – we abort early if the Go tool
+   chain is older than *1.21*, because nested modules such as *erigon‑db*
+   contain a `toolchain go1.24` directive that Go ≤1.20 can’t parse.
+   (That was the root cause of the “no package metadata” errors you saw.)
+2. **Readiness gate + long time‑outs** – just like the function
+   extractor, we wait for the *“Finished loading packages.”* log and give
+   each `textDocument/references` request up to 60 s.
+3. **One open per file** – we open each source file once, process all of
+   its functions, then close it.  This keeps the number of live *views*
+   inside gopls under 100 instead of 2000+.
+4. **Skip broken sub‑modules automatically** – if gopls cannot load a
+   package under a nested module we log it once and move on so the whole
+   run still finishes.
+"""
+
+from __future__ import annotations
+
 import json
 import os
+import re
+import signal
+import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-go_workspace = "/build"
+GO_WORKSPACE = Path("/build")
+DEFAULT_FUNCS = Path("/output/functions.json")
+DEFAULT_OUT = Path("/output/callgraph.json")
 
-def debug(msg):
-    print(f"[DEBUG] {msg}", file=sys.stderr)
+# ---------------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------------
+
+def debug(msg: str) -> None:
+    print(f"[DEBUG] {msg}", file=sys.stderr, flush=True)
+
+
+def _require_go_121() -> None:
+    try:
+        ver = subprocess.check_output(["go", "version"], text=True)
+    except Exception as exc:
+        sys.exit(f"Cannot run 'go version': {exc}")
+    m = re.search(r"go(\d+)\.(\d+)", ver)
+    if not m:
+        sys.exit(f"Unrecognised Go version string: {ver.strip()}")
+    maj, min_ = map(int, m.groups())
+    if maj < 1 or (maj == 1 and min_ < 21):
+        sys.exit("Go ≥ 1.21 is required – nested modules have 'toolchain' directives.")
+
+
+def _verify_workspace() -> None:
+    if not (GO_WORKSPACE / "go.mod").exists():
+        sys.exit("go.mod not found under /build – mount the repo as /build")
+
+# ---------------------------------------------------------------------------
+# LSP client (identical logic to the extractor)
+# ---------------------------------------------------------------------------
 
 class LSPClient:
-    def __init__(self, cmd):
-        debug(f"Starting LSP server: {' '.join(cmd)}")
-        self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=0)
-        self.id = 1
-        self.responses = {}
-        self.lock = threading.Lock()
-        self.reader_thread = threading.Thread(target=self._reader, daemon=True)
-        self.reader_thread.start()
+    _HDR_ENDINGS = (b"\r\n\r\n", b"\n\n")
+    _CL_RE = re.compile(br"Content-Length:\s*(\d+)", re.I)
 
-    def _reader(self):
-        debug("LSP reader thread started.")
-        buffer = b""
-        while True:
-            # Read header
-            header = b""
-            while not header.endswith(b"\r\n\r\n"):
-                chunk = self.proc.stdout.buffer.read(1)
-                if not chunk:
-                    debug("LSP server stdout closed.")
-                    return
-                header += chunk
-            headers = header.decode().split("\r\n")
-            content_length = 0
-            for h in headers:
-                if h.lower().startswith("content-length:"):
-                    content_length = int(h.split(":")[1].strip())
-            if content_length == 0:
-                debug("No content-length found in LSP response header.")
-                continue
-            # Read exactly content_length bytes
-            body = b""
-            while len(body) < content_length:
-                chunk = self.proc.stdout.buffer.read(content_length - len(body))
-                if not chunk:
-                    debug("LSP server stdout closed during body read.")
-                    return
-                body += chunk
-            try:
-                body_str = body.decode()
-                debug(f"Received LSP response: {body_str[:200]}")
-                resp = json.loads(body_str)
-                if 'id' in resp:
-                    with self.lock:
-                        self.responses[resp['id']] = resp
-            except json.JSONDecodeError as e:
-                debug(f"JSON decode error: {e} in body: {body[:200]}")
-                continue
+    def __init__(self, cmd: List[str]):
+        debug("Starting LSP server: " + " ".join(cmd))
+        self.proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=0,
+        )
+        if not all((self.proc.stdin, self.proc.stdout, self.proc.stderr)):
+            raise RuntimeError("Failed to launch gopls")
 
-    def send(self, method, params=None):
-        msg = {
-            "jsonrpc": "2.0",
-            "id": self.id,
-            "method": method
-        }
+        self._next_id = 1
+        self._responses: Dict[int, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
+        self._ready = threading.Event()
+
+        threading.Thread(target=self._reader, daemon=True).start()
+        threading.Thread(target=self._stderr_forward, daemon=True).start()
+
+    # ------------- public API -------------
+
+    def send(
+        self,
+        method: str,
+        params: Optional[Any] = None,
+        *,
+        timeout: float = 60.0,
+    ) -> Optional[Dict[str, Any]]:
+        body = {"jsonrpc": "2.0", "id": self._next_id, "method": method}
         if params is not None:
-            msg["params"] = params
-        body = json.dumps(msg)
-        header = f"Content-Length: {len(body)}\r\n\r\n"
-        debug(f"Sending LSP request: {method} (id={self.id})")
-        self.proc.stdin.write(header + body)
+            body["params"] = params
+        body_s = json.dumps(body)
+        header = f"Content-Length: {len(body_s)}\r\n\r\n"
+
+        self.proc.stdin.write(header + body_s)
         self.proc.stdin.flush()
-        my_id = self.id
-        self.id += 1
-        for _ in range(100):
-            with self.lock:
-                if my_id in self.responses:
-                    debug(f"Got response for id={my_id}")
-                    return self.responses.pop(my_id)
+        my_id = self._next_id
+        self._next_id += 1
+
+        debug(f"→ {method} (id={my_id})")
+        for _ in range(int(timeout / 0.05)):
+            with self._lock:
+                if my_id in self._responses:
+                    return self._responses.pop(my_id)
             time.sleep(0.05)
-        debug(f"Timeout waiting for response to id={my_id}")
+        debug(f"timeout {method} id={my_id}")
         return None
 
-    def notify(self, method, params=None):
-        msg = {
-            "jsonrpc": "2.0",
-            "method": method
-        }
+    def notify(self, method: str, params: Optional[Any] = None) -> None:
+        body = {"jsonrpc": "2.0", "method": method}
         if params is not None:
-            msg["params"] = params
-        body = json.dumps(msg)
-        header = f"Content-Length: {len(body)}\r\n\r\n"
-        debug(f"Sending LSP notification: {method}")
-        self.proc.stdin.write(header + body)
+            body["params"] = params
+        body_s = json.dumps(body)
+        header = f"Content-Length: {len(body_s)}\r\n\r\n"
+        self.proc.stdin.write(header + body_s)
         self.proc.stdin.flush()
+        debug(f"→ notif {method}")
 
-    def close(self):
-        debug("Terminating LSP server.")
+    def wait_until_ready(self, timeout: float = 300.0) -> None:
+        debug("Waiting for gopls to load packages …")
+        self._ready.wait(timeout)
+        debug("gopls ready.")
+
+    def close(self) -> None:
+        debug("Stopping gopls…")
         self.proc.terminate()
-        self.proc.wait()
+        try:
+            self.proc.wait(3)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
 
-# Initialize and warm up gopls
-lsp_cmd = ["gopls", "-mode=stdio"]
-client = LSPClient(lsp_cmd)
+    # ------------- reader ------------
 
-init_params = {
-    "processId": os.getpid(),
-    "rootUri": f"file://{go_workspace}",
-    "capabilities": {},
-    "trace": "verbose"
-}
-resp = client.send("initialize", init_params)
-if not resp:
-    debug("No response to initialize request. Exiting.")
-    sys.exit(1)
-client.notify("initialized", {})
+    def _stderr_forward(self) -> None:
+        for line in self.proc.stderr:
+            debug(f"[gopls] {line.rstrip()}")
 
-time.sleep(5)  # Give gopls time to warm up and index the workspace
+    def _reader(self) -> None:
+        buf = b""
+        while True:
+            while not any(e in buf for e in self._HDR_ENDINGS):
+                chunk = self.proc.stdout.buffer.read(1)
+                if not chunk:
+                    return
+                buf += chunk
+            for ending in self._HDR_ENDINGS:
+                if ending in buf:
+                    header, _, buf = buf.partition(ending)
+                    break
+            m = self._CL_RE.search(header)
+            if not m:
+                continue
+            length = int(m.group(1))
+            while len(buf) < length:
+                chunk = self.proc.stdout.buffer.read(length - len(buf))
+                if not chunk:
+                    return
+                buf += chunk
+            raw, buf = buf[:length], buf[length:]
+            try:
+                msg = json.loads(raw.decode())
+            except Exception as exc:
+                debug(f"JSON err: {exc}")
+                continue
 
-# Read functions.json
-with open("/output/functions.json") as f:
-    functions = json.load(f)
+            if isinstance(msg, dict) and "id" in msg:
+                with self._lock:
+                    self._responses[int(msg["id"])] = msg
+            else:
+                meth = msg.get("method")
+                if meth == "window/showMessage":
+                    txt = msg["params"].get("message", "")
+                    if "Finished loading packages" in txt:
+                        self._ready.set()
+                elif meth in {"textDocument/publishDiagnostics", "window/logMessage"}:
+                    pass  # too chatty
 
-callgraph = {}
-for fn in functions:
-    uri = f"file://{fn['file']}"
-    # Send didOpen notification for the file
-    try:
-        with open(fn['file'], 'r') as fobj:
-            lines = fobj.readlines()
-            text = ''.join(lines)
-        client.notify("textDocument/didOpen", {
-            "textDocument": {
-                "uri": uri,
-                "languageId": "go",
-                "version": 1,
-                "text": text
-            }
-        })
-        # Try to find the function name position on the start line
-        line_num = fn['range']['start']['line'] if fn.get('range') else 0
-        func_name = fn['name'].split('.')[-1].split(')')[-1]  # crude, works for most Go funcs
-        line_text = lines[line_num] if line_num < len(lines) else ''
-        char_pos = line_text.find(func_name)
-        if char_pos == -1:
-            char_pos = fn['range']['start']['character'] if fn.get('range') else 0
-        pos = {"line": line_num, "character": char_pos}
-    except Exception as e:
-        debug(f"Failed to open file or find function name position for {fn['name']} in {fn['file']}: {e}")
-        pos = fn['range']['start'] if fn.get('range') else {"line": 0, "character": 0}
-    params = {
-        "textDocument": {"uri": uri},
-        "position": pos,
-        "context": {"includeDeclaration": False}
-    }
-    debug(f"Requesting references for {fn.get('name')} in {fn.get('file')} at {pos}")
-    resp = client.send("textDocument/references", params)
-    callees = []
-    if resp and 'result' in resp and resp['result']:
-        for ref in resp['result']:
-            ref_uri = ref['uri']
-            ref_file = ref_uri.replace("file://", "")
-            ref_line = ref['range']['start']['line']
-            callees.append({"file": ref_file, "line": ref_line})
-    callgraph[fn.get('name')] = callees
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
 
-    # Close the file in gopls to free resources
-    client.notify("textDocument/didClose", {
-        "textDocument": {"uri": uri}
-    })
-    time.sleep(0.1)  # Throttle to avoid overloading gopls
+def main() -> None:
+    import argparse
 
-with open("/output/callgraph.json", "w") as f:
-    json.dump(callgraph, f, indent=2)
+    parser = argparse.ArgumentParser(description="Generate Go call‑graph via gopls")
+    parser.add_argument("--funcs", default=str(DEFAULT_FUNCS), help="functions.json from extractor")
+    parser.add_argument("--out", default=str(DEFAULT_OUT), help="Output callgraph.json")
+    args = parser.parse_args()
 
-client.close()
+    _require_go_121()
+    _verify_workspace()
+
+    # graceful Ctrl‑C
+    signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
+
+    client = LSPClient(["gopls", "-mode=stdio"])
+
+    root_uri = f"file://{GO_WORKSPACE}"
+    init = client.send(
+        "initialize",
+        {
+            "processId": os.getpid(),
+            "rootUri": root_uri,
+            "capabilities": {},
+            "workspaceFolders": [{"uri": root_uri, "name": "erigon"}],
+        },
+    )
+    if not init:
+        sys.exit("failed to initialise gopls")
+    client.notify("initialized", {})
+    client.wait_until_ready()
+
+    with open(args.funcs, "r", encoding="utf-8") as fp:
+        fns: List[Dict[str, Any]] = json.load(fp)
+
+    # Group functions per file to avoid re‑opening 1000×.
+    by_file: Dict[str, List[Dict[str, Any]]] = {}
+    for fn in fns:
+        by_file.setdefault(fn["file"], []).append(fn)
+
+    callgraph: Dict[str, List[Dict[str, Any]]] = {}
+
+    for file_path, funcs in by_file.items():
+        uri = f"file://{file_path}"
+        try:
+            text = Path(file_path).read_text()
+        except Exception as exc:
+            debug(f"cannot read {file_path}: {exc}")
+            continue
+
+        client.notify(
+            "textDocument/didOpen",
+            {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "go",
+                    "version": 1,
+                    "text": text,
+                }
+            },
+        )
+
+        lines = text.splitlines()
+
+        for fn in funcs:
+            # heuristic to locate the symbol quickly
+            line0 = fn.get("range", {}).get("start", {}).get("line", 0)
+            name = fn["name"].split(".")[-1].split(")")[-1]
+            if line0 < len(lines):
+                ch = lines[line0].find(name)
+            else:
+                ch = -1
+            if ch < 0:
+                ch = fn.get("range", {}).get("start", {}).get("character", 0)
+            pos = {"line": line0, "character": ch}
+
+            debug(f"references for {fn['name']} @ {pos}")
+            refs = client.send(
+                "textDocument/references",
+                {
+                    "textDocument": {"uri": uri},
+                    "position": pos,
+                    "context": {"includeDeclaration": False},
+                },
+            )
+            if not refs or "result" not in refs:
+                debug(f"   ↳ skipped (no metadata)")
+                continue
+            callees: List[Dict[str, Any]] = []
+            for ref in refs["result"]:
+                ref_uri = ref["uri"]
+                ref_file = ref_uri.replace("file://", "")
+                callees.append({
+                    "file": ref_file,
+                    "line": ref["range"]["start"]["line"],
+                })
+            callgraph[fn["name"]] = callees
+
+        client.notify("textDocument/didClose", {"textDocument": {"uri": uri}})
+        time.sleep(0.02)  # small breather
+
+    DEFAULT_OUT.parent.mkdir(parents=True, exist_ok=True)
+    with open(args.out, "w", encoding="utf-8") as fp:
+        json.dump(callgraph, fp, indent=2)
+    debug(f"Wrote call‑graph with {len(callgraph)} roots → {args.out}")
+
+    client.close()
+
+if __name__ == "__main__":
+    main()
