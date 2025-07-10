@@ -47,9 +47,12 @@ fi
 # Disable PoW validation.
 FLAGS="$FLAGS --fakepow"
 
+# Disable downloader/torrent functionality to avoid segfault
+FLAGS="$FLAGS --torrent.port 0 --no-downloader --torrent.download.rate 0 --snap.stop --snap.state.stop"
+
 # Create the data directory.
-mkdir /erigon-hive-datadir
-FLAGS="$FLAGS --datadir /erigon-hive-datadir"
+mkdir -p /home/erigon/erigon-hive-datadir
+FLAGS="$FLAGS --datadir /home/erigon/erigon-hive-datadir"
 FLAGS="$FLAGS --db.size.limit 2GB"
 
 # If a specific network ID is requested, use that
@@ -60,16 +63,16 @@ else
 fi
 
 # Configure the chain.
-mv /genesis.json /genesis-input.json
-jq -f /mapper.jq /genesis-input.json > /genesis.json
+cp /genesis.json /home/erigon/genesis-input.json
+jq -f /mapper.jq /home/erigon/genesis-input.json > /home/erigon/genesis.json
 
 # Dump genesis. 
-if [ "$HIVE_LOGLEVEL" -lt 4 ]; then
+if [ "${HIVE_LOGLEVEL:-4}" -lt 4 ]; then
     echo "Supplied genesis state (trimmed, use --sim.loglevel 4 or 5 for full output):"
-    jq 'del(.alloc[] | select(.balance == "0x123450000000000000000"))' /genesis.json
+    jq 'del(.alloc[] | select(.balance == "0x123450000000000000000"))' /home/erigon/genesis.json
 else
     echo "Supplied genesis state:"
-    cat /genesis.json
+    cat /home/erigon/genesis.json
 fi
 
 echo "Command flags till now:"
@@ -77,7 +80,7 @@ echo $FLAGS
 
 # Initialize the local testchain with the genesis state
 echo "Initializing database with genesis state..."
-$erigon $FLAGS init /genesis.json
+$erigon $FLAGS init /home/erigon/genesis.json
 
 # Don't immediately abort, some imports are meant to fail
 set +e
@@ -118,11 +121,11 @@ fi
 if [ "$HIVE_CLIQUE_PRIVATEKEY" != "" ]; then
     # Create password file.
     echo "Importing clique key..."
-    echo "$HIVE_CLIQUE_PRIVATEKEY" > ./private_key.txt
+    echo "$HIVE_CLIQUE_PRIVATEKEY" > /home/erigon/private_key.txt
 
     # Ensure password file is used when running geth in mining mode.
     if [ "$HIVE_MINER" != "" ]; then
-        FLAGS="$FLAGS --miner.sigfile private_key.txt"
+        FLAGS="$FLAGS --miner.sigfile /home/erigon/private_key.txt"
     fi
 fi
 
@@ -138,8 +141,8 @@ FLAGS="$FLAGS --sync.parallel-state-flushing=false"
 
 if [ "$HIVE_TERMINAL_TOTAL_DIFFICULTY" != "" ]; then
     JWT_SECRET="0x7365637265747365637265747365637265747365637265747365637265747365"
-    echo -n $JWT_SECRET > /jwt.secret
-    FLAGS="$FLAGS --authrpc.addr=0.0.0.0 --authrpc.jwtsecret=/jwt.secret"
+    echo -n $JWT_SECRET > /home/erigon/jwt.secret
+    FLAGS="$FLAGS --authrpc.addr=0.0.0.0 --authrpc.jwtsecret=/home/erigon/jwt.secret"
 fi
 
 # Launch the main client.
