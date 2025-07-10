@@ -148,4 +148,4 @@ fi
 # Launch the main client.
 FLAGS="$FLAGS --nat=none"
 echo "Running erigon with flags $FLAGS"
-$erigon $FLAGS
+gdb -x /trace.gdb --args $erigon $FLAGS
